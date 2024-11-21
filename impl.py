@@ -12,15 +12,27 @@ class IdentifiableEntity(object):
 
 # The cultural Heritage Object class definition
 class CulturalHeritageObject(IdentifiableEntity):
-    def __init__(self, title, owner, date, place):
+    def __init__(self, title, date, owner,  place, authors):
         self.title = title
-        self.owner = owner
         self.date = date
+        self.owner = owner
         self.place = place
+        self.authors = authors
 
     def getTitle(self):
         return self.title
 
+    def getDate(self):
+        return self.date
+
+    def getOwner(self):
+        return self.owner
+
+    def getPlace(self):
+        return self.place
+
+    def getAuthors(self):
+        return
 
 # Defining 10 types of Cultural Heritage Objects classes
 class Map(CulturalHeritageObject):
@@ -106,7 +118,49 @@ class Optimising(Activity):
 class Exporting(Activity):
     pass
 
+# Defining operational classes
+# First the Handlers
+class Handler:
+    def __init__(self, dbPathOrUrl):
+        self.paths = set()
+        for path in dbPathOrUrl:
+            self.paths.add(path)
 
+    def getDbPathOrUrl(self):
+        if not self.paths:
+            return "There is no DB path or URL"
+        else:
+            return self.paths[0]
 
+    def setDbPathOrUrl(self,DbPath):
+        if not self.paths:
+            self.paths.add(DbPath)
+            return self.paths
+        else:
+            self.paths.remove(self.paths[0])
+            self.paths.add(DbPath)
+            return self.paths
 
+class UploadHandler(Handler):
+    pass
 
+class MetadataUploadHandler(UploadHandler):
+    pass
+
+class ProcessDataUploadHandler(UploadHandlerHandler):
+    pass
+
+class QueryHandler(Handler):
+    pass
+
+class MetadataQueryHandler(QueryHandler):
+    pass
+
+class ProcessDataQueryHandler(QueryHandler):
+    pass
+
+class BasicMashup:
+    pass
+
+class AdvancedMashup(BasicMashup):
+    pass
