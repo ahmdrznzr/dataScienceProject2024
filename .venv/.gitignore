@@ -1,0 +1,4 @@
+# created by virtualenv automatically
+*.log
+test.csv
+running_code.py

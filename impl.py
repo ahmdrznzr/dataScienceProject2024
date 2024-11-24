@@ -1,6 +1,9 @@
 # Defining all the necessary classes of the project
+from json import load
+from pandas import DataFrame, Series
+from sqlite3 import connect
 
-#import
+
 
 # First of all defining Classes of the UML Data Model
 class IdentifiableEntity(object):
@@ -121,34 +124,143 @@ class Exporting(Activity):
 # Defining operational classes
 # First the Handlers
 class Handler:
-    def __init__(self, dbPathOrUrl):
-        self.paths = set()
-        for path in dbPathOrUrl:
-            self.paths.add(path)
+    def __init__(self, dbPathOrUrl=""): # The initial value of the dbPathOrUrl
+        self.dbPathOrUrl = dbPathOrUrl
 
-    def getDbPathOrUrl(self):
-        if not self.paths:
-            return "There is no DB path or URL"
-        else:
-            return self.paths[0]
+    def getDbPathOrUrl(self)-> str:
+        return "No URL yet" if  self.dbPathOrUrl == "" else str(self.dbPathOrUrl)
 
-    def setDbPathOrUrl(self,DbPath):
-        if not self.paths:
-            self.paths.add(DbPath)
-            return self.paths
-        else:
-            self.paths.remove(self.paths[0])
-            self.paths.add(DbPath)
-            return self.paths
+    def setDbPathOrUrl(self,DbPath) ->bool: #This method sets or changes the value of the dbPathOrUrl variable
+        self.dbPathOrUrl = DbPath
+        return True
 
 class UploadHandler(Handler):
-    pass
+    def pushDataToDb(self, path: str) -> bool:
+        pass
 
 class MetadataUploadHandler(UploadHandler):
     pass
 
-class ProcessDataUploadHandler(UploadHandlerHandler):
-    pass
+class ProcessDataUploadHandler(UploadHandler):
+
+    def uploadToRelDb(self, data: DataFrame, name: str):
+        with connect('Data.db') as con:
+            return data.to_sql(name, con, if_exists='replace', index = False)
+
+    def pushDataToDb(self, path: str) -> bool:
+#    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = load(f)
+
+        acquisition_records = []
+        processing_records = []
+        modelling_records = []
+        optimising_records = []
+        exporting_records = []
+        objectIds = []
+        rows = []
+        activities = set()
+
+        try:
+            # Iterate through the list of object
+            for item in data:
+                objectId = item.get("object id", None)
+                objectIds.append(objectId)
+
+                # Ensure the current item is a dictionary and contains "acquisition"
+                if isinstance(item, dict) and "acquisition" in item:
+                    acquisition = item["acquisition"]
+                    # Ensure "acquisition" is a dictionary
+                    if isinstance(acquisition, dict):
+                        # Add "object id" for context and merge with the acquisition data
+                        acquisition_records.append(acquisition)
+
+                # Ensure the current item is a dictionary and contains "processing"
+                if isinstance(item, dict) and "processing" in item:
+                    processing = item["processing"]
+                    # Ensure "processing" is a dictionary
+                    if isinstance(processing, dict):
+                        processing_records.append(processing)
+
+                # Ensure the current item is a dictionary and contains "modelling"
+                if isinstance(item, dict) and "modelling" in item:
+                    modelling = item["modelling"]
+                    # Ensure "modelling" is a dictionary
+                    if isinstance(modelling, dict):
+                        modelling_records.append(modelling)
+
+                # Ensure the current item is a dictionary and contains "optimising"
+                if isinstance(item, dict) and "optimising" in item:
+                    optimising = item["optimising"]
+                    # Ensure "optimising" is a dictionary
+                    if isinstance(optimising, dict):
+                        optimising_records.append(optimising)
+
+                # Ensure the current item is a dictionary and contains "exporting"
+                if isinstance(item, dict) and "exporting" in item:
+                    exporting = item["exporting"]
+                    # Ensure "optimising" is a dictionary
+                    if isinstance(exporting, dict):
+                        exporting_records.append(exporting)
+
+                if isinstance(item, dict):
+                    activities.update(item.keys())
+                    activities.discard("object id")
+
+                object_id = item.get("object id", None)
+                # Iterate through the dynamically extracted activities
+                # And build a list of dictionaries consisting of "object id", "activity", and the "tool" used
+                for activity in activities:
+                    activity_data = item.get(activity, {})
+                    tools = activity_data.get("tool", [])
+                    # Handle cases where "tools" may be empty or missing
+                    if tools:
+                        for tool in tools:
+                            rows.append({"object id": object_id, "activity": activity, "tool": tool})
+                    else:
+                        # Include a row with no tools if the list is empty
+                        rows.append({"object id": object_id, "activity": activity, "tool": None})
+
+
+            df_tools = DataFrame(rows)
+            df_tools.dropna(inplace=True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_tools, 'Tools')
+
+            # Adding acquisition records to dataframe
+            df_acquisition = DataFrame(acquisition_records)
+            df_acquisition.insert(0,"Object Id", Series(objectIds, index = None))
+            df_acquisition.drop('tool', axis = 1, inplace = True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_acquisition,'Acquisition')
+
+            # Adding processing records to dataframe
+            df_processing = DataFrame(processing_records)
+            df_processing.insert(0,"Object Id", Series(objectIds, index = None, dtype = str))
+            df_processing.drop('tool', axis = 1, inplace = True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_processing, 'Processing')
+
+            # Adding modelling records to dataframe
+            df_modelling = DataFrame(modelling_records)
+            df_modelling.insert(0,"Object Id", Series(objectIds, index = None, dtype = str))
+            df_modelling.drop('tool', axis=1, inplace = True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_modelling, 'Modelling')
+
+            # Adding optimising records to dataframe
+            df_optimising = DataFrame(optimising_records)
+            df_optimising.insert(0,"Object Id", Series(objectIds, index = None, dtype = str))
+            df_optimising.drop('tool', axis=1, inplace = True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_optimising, 'optimising')
+
+            # Adding exporting records to dataframe
+            df_exporting = DataFrame(exporting_records)
+            df_exporting.insert(0,"Object Id", Series(objectIds, index = None, dtype = str))
+            df_exporting.drop('tool', axis=1, inplace = True)
+            ProcessDataUploadHandler.uploadToRelDb(self, df_exporting, 'Exporting')
+
+            return True
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            return False
 
 class QueryHandler(Handler):
     pass
